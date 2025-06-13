@@ -3,6 +3,9 @@ import os
 from utils import clean_text, chunk_text, summarize_chunks
 from config import get_api_key
 import requests
+import docx
+import PyPDF2
+import io
 
 # Получение API-ключа
 TOGETHER_API_KEY = get_api_key()
@@ -38,32 +41,99 @@ def query_together_ai(prompt, api_key=TOGETHER_API_KEY):
     except Exception as e:
         return f"[Ошибка запроса к Together.ai: {e}]"
 
+def get_text_from_file(file):
+    """Извлекает текст из файла разных форматов"""
+    if file is None:
+        return None
+        
+    file_name = file.name.lower()
+    
+    try:
+        if file_name.endswith('.txt'):
+            # Читаем содержимое txt файла
+            with open(file.name, 'r', encoding='utf-8') as f:
+                return f.read()
+        elif file_name.endswith('.docx'):
+            # Для docx используем путь к файлу
+            doc = docx.Document(file.name)
+            return '\n'.join([paragraph.text for paragraph in doc.paragraphs])
+        elif file_name.endswith('.pdf'):
+            # Для pdf используем путь к файлу
+            pdf_reader = PyPDF2.PdfReader(file.name)
+            text = ''
+            for page in pdf_reader.pages:
+                text += page.extract_text() + '\n'
+            return text
+        else:
+            return None
+    except Exception as e:
+        print(f"Ошибка при чтении файла: {str(e)}")
+        return None
+
+def get_text_statistics(text):
+    """Возвращает статистику по тексту"""
+    words = text.split()
+    sentences = text.split('.')
+    return f"Слов: {len(words)}, Предложений: {len(sentences)}"
+
 # Основная функция саммаризации
 def summarize_interface(text, file):
     # Получение текста из поля или файла
     if file is not None:
-        text = file.read().decode('utf-8')
+        file_text = get_text_from_file(file)
+        if file_text:
+            text = file_text
+        else:
+            return 'Ошибка при чтении файла. Пожалуйста, проверьте формат файла.', '', ''
+            
     if not text or text.strip() == '':
-        return 'Пожалуйста, введите текст или загрузите файл.'
+        return 'Пожалуйста, введите текст или загрузите файл.', '', ''
 
+    # Получаем статистику
+    stats = get_text_statistics(text)
+    
     # 1. Очистка текста
     cleaned = clean_text(text)
     # 2. Разбиение на чанки
     chunks = chunk_text(cleaned)
     # 3. Многоэтапная генерация саммари
     summary = summarize_chunks(chunks, query_together_ai, PROMPT)
-    return summary
+    
+    return text, summary, stats
 
 # Gradio-интерфейс
 demo = gr.Interface(
     fn=summarize_interface,
     inputs=[
-        gr.Textbox(label="Введите текст для саммари", lines=10),
-        gr.File(label="или загрузите .txt файл", file_types=[".txt"])
+        gr.Textbox(
+            label="Введите текст для саммари", 
+            lines=10,
+            placeholder="Вставьте сюда текст статьи, отчета или другого документа..."
+        ),
+        gr.File(
+            label="или загрузите файл", 
+            file_types=[".txt", ".doc", ".docx", ".pdf"],
+            file_count="single"
+        )
     ],
-    outputs=gr.Textbox(label="Саммари"),
+    outputs=[
+        gr.Textbox(label="Исходный текст", lines=10),
+        gr.Textbox(label="Саммари", lines=5),
+        gr.Textbox(label="Статистика", lines=2)
+    ],
     title="🎮 Текстовый саммаризатор для Ifortex ML Intern (2025)",
-    description="Генерация краткого саммари длинных текстов с помощью Mistral-7B-Instruct (Together.ai)",
+    description="""
+    Генерация краткого саммари для различных текстовых документов:
+    - Новостные статьи
+    - Отчёты и посты
+    - Материалы с Википедии
+    - Загруженные файлы (.txt, .doc, .docx, .pdf)
+    
+    Поддерживает как короткие (~500 слов), так и длинные тексты (до 5000+ слов).
+    """,
+    examples=[
+        ["Это пример короткого текста для саммаризации. Здесь может быть любой текст, который вы хотите сократить до нескольких предложений.", None]
+    ]
 )
 
 def main():
