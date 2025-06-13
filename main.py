@@ -1,6 +1,6 @@
 import gradio as gr
 import os
-from utils import clean_text, chunk_text, summarize_chunks
+from utils import clean_text, chunk_text, summarize_chunks, count_tokens
 from config import get_api_key
 import requests
 import docx
@@ -11,10 +11,21 @@ import io
 TOGETHER_API_KEY = get_api_key()
 
 # Промт для модели
-PROMPT = (
-    "Сгенерируй краткое саммари на русском (3-5 предложений) для следующего текста, "
-    "сохраняя ключевые факты:\n\n{TEXT}"
-)
+PROMPT = """Ты - эксперт по созданию качественных саммари текстов. Твоя задача - создать краткое, но информативное саммари, которое:
+
+1. Сохраняет все ключевые факты и идеи
+2. Поддерживает логическую структуру оригинала
+3. Использует четкий и профессиональный язык
+4. Исключает повторения и несущественные детали
+5. Сохраняет важные термины и определения
+6. Отражает основной тон и стиль оригинала
+
+Создай саммари длиной 3-5 предложений, которое будет понятно даже читателю, не знакомому с темой.
+
+Текст для саммаризации:
+{TEXT}
+
+Саммари:"""
 
 # Функция для отправки запроса к Together.ai (Mistral-7B-Instruct)
 def query_together_ai(prompt, api_key=TOGETHER_API_KEY):
@@ -74,7 +85,8 @@ def get_text_statistics(text):
     """Возвращает статистику по тексту"""
     words = text.split()
     sentences = text.split('.')
-    return f"Слов: {len(words)}, Предложений: {len(sentences)}"
+    tokens = count_tokens(text)
+    return f"Слов: {len(words)}, Предложений: {len(sentences)}, Токенов: {tokens}"
 
 # Основная функция саммаризации
 def summarize_interface(text, file):
