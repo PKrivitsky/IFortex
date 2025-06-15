@@ -14,17 +14,87 @@ def count_tokens(text, model_name='gpt2'):
     enc = tiktoken.get_encoding(model_name)
     return len(enc.encode(text))
 
-# Разбиение текста на чанки по ~4000 токенов с overlap
-def chunk_text(text, max_tokens=4000, overlap=200, model_name='gpt2'):
+# Разбиение текста на чанки с учетом границ предложений
+def chunk_text(text, max_tokens=2000, overlap=200, model_name='gpt2'):
+    """
+    Разбивает текст на чанки с учетом границ предложений и ограничений по токенам.
+    
+    Args:
+        text (str): Исходный текст
+        max_tokens (int): Максимальное количество токенов в чанке
+        overlap (int): Количество перекрывающихся токенов
+        model_name (str): Модель токенизации
+        
+    Returns:
+        list: Список чанков текста
+    """
+    if not text or not text.strip():
+        return []
+        
+    # Инициализация токенизатора
     enc = tiktoken.get_encoding(model_name)
-    tokens = enc.encode(text)
+    
+    # Разбиваем текст на предложения
+    sentences = re.split(r'(?<=[.!?])\s+', text)
     chunks = []
-    start = 0
-    while start < len(tokens):
-        end = min(start + max_tokens, len(tokens))
-        chunk = enc.decode(tokens[start:end])
-        chunks.append(chunk)
-        start += max_tokens - overlap
+    current_chunk = []
+    current_tokens = 0
+    
+    for sentence in sentences:
+        # Токенизируем предложение
+        sentence_tokens = enc.encode(sentence)
+        sentence_token_count = len(sentence_tokens)
+        
+        # Если предложение слишком длинное, разбиваем его
+        if sentence_token_count > max_tokens:
+            if current_chunk:
+                chunks.append(' '.join(current_chunk))
+                current_chunk = []
+                current_tokens = 0
+            
+            # Разбиваем длинное предложение на части
+            start = 0
+            while start < sentence_token_count:
+                end = min(start + max_tokens, sentence_token_count)
+                chunk = enc.decode(sentence_tokens[start:end])
+                chunks.append(chunk)
+                start = end - overlap
+        
+        # Если добавление предложения превысит лимит, создаем новый чанк
+        elif current_tokens + sentence_token_count > max_tokens:
+            chunks.append(' '.join(current_chunk))
+            current_chunk = [sentence]
+            current_tokens = sentence_token_count
+        else:
+            current_chunk.append(sentence)
+            current_tokens += sentence_token_count
+    
+    # Добавляем последний чанк, если он есть
+    if current_chunk:
+        chunks.append(' '.join(current_chunk))
+    
+    # Проверяем количество чанков
+    if len(chunks) > 10:  # Максимальное количество чанков
+        # Объединяем чанки, если их слишком много
+        combined_chunks = []
+        current_combined = []
+        current_tokens = 0
+        
+        for chunk in chunks:
+            chunk_tokens = len(enc.encode(chunk))
+            if current_tokens + chunk_tokens > max_tokens:
+                combined_chunks.append(' '.join(current_combined))
+                current_combined = [chunk]
+                current_tokens = chunk_tokens
+            else:
+                current_combined.append(chunk)
+                current_tokens += chunk_tokens
+        
+        if current_combined:
+            combined_chunks.append(' '.join(current_combined))
+        
+        chunks = combined_chunks
+    
     return chunks
 
 # Итеративная генерация саммари для списка чанков
