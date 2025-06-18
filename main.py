@@ -27,10 +27,10 @@ PROMPT = """Ты - эксперт по созданию качественных
 
 Саммари:"""
 
-# Функция для отправки запроса к Together.ai (Mistral-7B-Instruct)
+
 def query_together_ai(prompt, api_key=TOGETHER_API_KEY):
     """
-    Отправляет запрос к Together.ai (Mistral-7B-Instruct) и возвращает ответ модели.
+    Функция для отправки запроса к Together.ai (Mistral-7B-Instruct) и получения ответа модели.
     """
     url = "https://api.together.xyz/v1/completions"
     headers = {
@@ -61,15 +61,12 @@ def get_text_from_file(file):
     
     try:
         if file_name.endswith('.txt'):
-            # Читаем содержимое txt файла
             with open(file.name, 'r', encoding='utf-8') as f:
                 return f.read()
         elif file_name.endswith('.docx'):
-            # Для docx используем путь к файлу
             doc = docx.Document(file.name)
             return '\n'.join([paragraph.text for paragraph in doc.paragraphs])
         elif file_name.endswith('.pdf'):
-            # Для pdf используем путь к файлу
             pdf_reader = PyPDF2.PdfReader(file.name)
             text = ''
             for page in pdf_reader.pages:
@@ -90,7 +87,7 @@ def get_text_statistics(text):
 
 # Основная функция саммаризации
 def summarize_interface(text, file):
-    # Получение текста из поля или файла
+    # Получение текста 
     if file is not None:
         file_text = get_text_from_file(file)
         if file_text:
@@ -108,7 +105,7 @@ def summarize_interface(text, file):
     cleaned = clean_text(text)
     # 2. Разбиение на чанки
     chunks = chunk_text(cleaned)
-    # 3. Многоэтапная генерация саммари
+    # 3. Генерация саммари
     summary = summarize_chunks(chunks, query_together_ai, PROMPT)
     
     return text, summary, stats

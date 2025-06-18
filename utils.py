@@ -1,7 +1,7 @@
 import re
 import tiktoken
 
-# Очистка текста от лишних символов
+# Очистка текста
 def clean_text(text):
     """
     Удаляет лишние пробелы, спецсимволы и приводит текст к нормальному виду.
@@ -9,24 +9,14 @@ def clean_text(text):
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
 
-# Подсчет количества токенов в тексте (Mistral = gpt2)
+# Подсчет количества токенов в тексте
 def count_tokens(text, model_name='gpt2'):
     enc = tiktoken.get_encoding(model_name)
     return len(enc.encode(text))
 
-# Разбиение текста на чанки с учетом границ предложений
 def chunk_text(text, max_tokens=2000, overlap=200, model_name='gpt2'):
     """
     Разбивает текст на чанки с учетом границ предложений и ограничений по токенам.
-    
-    Args:
-        text (str): Исходный текст
-        max_tokens (int): Максимальное количество токенов в чанке
-        overlap (int): Количество перекрывающихся токенов
-        model_name (str): Модель токенизации
-        
-    Returns:
-        list: Список чанков текста
     """
     if not text or not text.strip():
         return []
@@ -74,8 +64,7 @@ def chunk_text(text, max_tokens=2000, overlap=200, model_name='gpt2'):
         chunks.append(' '.join(current_chunk))
     
     # Проверяем количество чанков
-    if len(chunks) > 10:  # Максимальное количество чанков
-        # Объединяем чанки, если их слишком много
+    if len(chunks) > 10:
         combined_chunks = []
         current_combined = []
         current_tokens = 0
